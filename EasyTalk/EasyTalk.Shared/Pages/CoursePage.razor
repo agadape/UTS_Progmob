@@ -1,0 +1,149 @@
+﻿@page "/courses"
+@using EasyTalk.Shared.Models
+@using EasyTalk.Shared.Services
+@inject APIServices Api
+
+<div class="dashboard-container">
+
+    <aside class="sidebar">
+        <h2 class="logo">EasyTalk Admin</h2>
+        <nav>
+            <ul>
+                <li><a href="/trainers">👨‍🏫 Trainers</a></li>
+                <li><a class="active" href="/courses">📚 Courses</a></li>
+                <li><a href="/students">👩‍🎓 Students</a></li>
+                <li><a href="/reports">📊 Reports</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="page-header">
+            <h3>Course Management</h3>
+            <div class="search-bar">
+                <input class="form-control" placeholder="Search course..."
+                       @bind="searchTerm" @bind:event="oninput" />
+                <button class="btn btn-primary" @onclick="LoadData">Search</button>
+            </div>
+        </header>
+
+        <section class="card">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Description</th>
+                        <th>Trainer</th>
+                        <th>Price</th>
+                        <th>Duration</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in courses)
+                    {
+                        <tr>
+                            <td>@c.Title</td>
+                            <td>@c.Description</td>
+                            <td>@c.TrainerName</td>
+                            <td>@c.Price.ToString("C")</td>
+                            <td>@c.DurationHours hrs</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" @onclick="() => Edit(c)">Edit</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => Delete(c.Id)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card form-card">
+            <h4>@(isNew ? "Add Course" : "Edit Course")</h4>
+            <EditForm FormName="CourseForm" Model="course" OnValidSubmit="Save">
+                <InputText @bind-Value="course.Title" class="form-control mb-2" placeholder="Title" />
+                <InputText @bind-Value="course.Description" class="form-control mb-2" placeholder="Description" />
+                <InputNumber @bind-Value="course.Price" class="form-control mb-2" placeholder="Price" />
+                <InputNumber @bind-Value="course.DurationHours" class="form-control mb-2" placeholder="Duration (hours)" />
+
+                <select class="form-control mb-2" @bind="course.TrainerId">
+                    <option value="">-- Select Trainer --</option>
+                    @foreach (var t in trainers)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+
+                <button class="btn btn-success">@((isNew) ? "Add" : "Update")</button>
+            </EditForm>
+        </section>
+    </main>
+</div>
+
+@code {
+    private List<Course> courses = new();
+    private List<Trainer> trainers = new();
+    private Course course = new();
+    private bool isNew = true;
+    private string searchTerm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTrainers();
+        await LoadData();
+    }
+
+    private async Task LoadTrainers()
+    {
+        trainers = await Api.GetAllAsync<Trainer>("api/trainer");
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var url = string.IsNullOrEmpty(searchTerm)
+                ? "api/course"
+                : $"api/course?search={searchTerm}";
+
+            courses = await Api.GetAllAsync<Course>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LoadData ERROR] {ex.Message}");
+        }
+    }
+
+    private void Edit(Course c)
+    {
+        course = new Course
+        {
+            Id = c.Id,
+            Title = c.Title,
+            Description = c.Description,
+            Price = c.Price,
+            DurationHours = c.DurationHours,
+            TrainerId = c.TrainerId
+        };
+        isNew = false;
+    }
+
+    private async Task Save()
+    {
+        var success = await Api.SaveAsync("api/course", course, isNew);
+        if (success)
+        {
+            course = new();
+            isNew = true;
+            await LoadTrainers();
+            await LoadData();
+            
+        }
+    }
+
+    private async Task Delete(int id)
+    {
+        if (await Api.DeleteAsync($"api/course/{id}"))
+            await LoadData();
+    }
+}

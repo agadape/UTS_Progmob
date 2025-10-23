@@ -1,0 +1,134 @@
+﻿@page "/trainers"
+@using EasyTalk.Shared.Models
+@using EasyTalk.Shared.Services
+@inject APIServices Api
+
+<div class="dashboard-container">
+
+    <aside class="sidebar">
+        <h2 class="logo">EasyTalk Admin</h2>
+        <nav>
+            <ul>
+                <li><a class="active" href="/trainers">👨‍🏫 Trainers</a></li>
+                <li><a href="/students">👩‍🎓 Students</a></li>
+                <li><a href="/courses">📚 Courses</a></li>
+                <li><a href="/reports">📊 Reports</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="page-header">
+            <h3>Trainer Management</h3>
+            <div class="search-bar">
+                <input class="form-control" placeholder="Search trainer..."
+                       @bind="searchTerm" @bind:event="oninput" />
+                <button class="btn btn-primary" @onclick="LoadData">Search</button>
+            </div>
+        </header>
+
+        <section class="card">
+            <table class="table table-striped mt-3">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Expertise</th>
+                        <th>Email</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in trainers)
+                    {
+                        <tr>
+                            <td>@t.Name</td>
+                            <td>@t.Expertise</td>
+                            <td>@t.Email</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" @onclick="() => Edit(t)">Edit</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => Delete(t.Id)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card form-card p-3 mt-3">
+            <h4>@(isNew ? "Add Trainer" : "Edit Trainer")</h4>
+
+            <EditForm FormName="TrainerForm" Model="trainer" OnValidSubmit="Save">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <InputText @bind-Value="trainer.Name" class="form-control mb-2" placeholder="Name" />
+                <ValidationMessage For="@(() => trainer.Name)" />
+
+                <InputText @bind-Value="trainer.Expertise" class="form-control mb-2" placeholder="Expertise" />
+                <ValidationMessage For="@(() => trainer.Expertise)" />
+
+                <InputText @bind-Value="trainer.Email" class="form-control mb-2" placeholder="Email" />
+                <ValidationMessage For="@(() => trainer.Email)" />
+
+                <button type="submit" class="btn btn-success">
+                    @((isNew) ? "Add" : "Update")
+                </button>
+            </EditForm>
+        </section>
+
+    </main>
+</div>
+
+@code {
+    private List<Trainer> trainers = new();
+    private Trainer trainer = new();
+    private bool isNew = true;
+    private string searchTerm = "";
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var url = string.IsNullOrEmpty(searchTerm)
+                ? "api/trainer"
+                : $"api/trainer?search={searchTerm}";
+
+            trainers = await Api.GetAllAsync<Trainer>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[LoadData ERROR] {ex.Message}");
+        }
+    }
+
+    private void Edit(Trainer t)
+    {
+        trainer = new Trainer
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Expertise = t.Expertise,
+            Email = t.Email
+        };
+        isNew = false;
+    }
+
+    private async Task Save()
+    {
+        var success = await Api.SaveAsync("api/trainer", trainer, isNew);
+        if (success)
+        {
+            trainer = new();
+            isNew = true;
+            await LoadData();
+        }
+    }
+
+    private async Task Delete(int id)
+    {
+        if (await Api.DeleteAsync($"api/trainer/{id}"))
+            await LoadData();
+    }
+}
