@@ -12,6 +12,8 @@ namespace EasyTalk.Shared.Models
         public string Name { get; set; } = "";
         public string Expertise { get; set; } = "";
         public string Email { get; set; } = "";
+        public string? ProfileImageUrl { get; set; }
+
 
         public ICollection<Course>? Courses { get; set; }
     }

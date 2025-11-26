@@ -64,7 +64,7 @@ if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Swa
         c.RoutePrefix = string.Empty; // serve Swagger UI at application root ("/"). Change to "swagger" to serve under "/swagger".
     });
 }
-
+app.UseStaticFiles();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthorization();

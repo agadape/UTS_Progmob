@@ -14,6 +14,10 @@ namespace EasyTalk.Shared.Models
         public decimal Price { get; set; }
         public int DurationHours { get; set; }
         public int TrainerId { get; set; }
+        
+        //new
+        public string? CoverImageUrl { get; set; }
+
 
         //navigation property
         public Trainer? Trainer { get; set; }

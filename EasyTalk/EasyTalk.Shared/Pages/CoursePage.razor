@@ -2,6 +2,8 @@
 @using EasyTalk.Shared.Models
 @using EasyTalk.Shared.Services
 @inject APIServices Api
+@inject ICameraService CameraService
+
 
 <div class="dashboard-container">
 
@@ -9,10 +11,9 @@
         <h2 class="logo">EasyTalk Admin</h2>
         <nav>
             <ul>
-                <li><a href="/trainers">👨‍🏫 Trainers</a></li>
-                <li><a class="active" href="/courses">📚 Courses</a></li>
-                <li><a href="/students">👩‍🎓 Students</a></li>
-                <li><a href="/reports">📊 Reports</a></li>
+                <li><a href="/trainers">Trainers</a></li>
+                <li><a class="active" href="/courses">Courses</a></li>
+
             </ul>
         </nav>
     </aside>
@@ -31,6 +32,7 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
+                        <th>Cover</th>
                         <th>Title</th>
                         <th>Description</th>
                         <th>Trainer</th>
@@ -43,6 +45,12 @@
                     @foreach (var c in courses)
                     {
                         <tr>
+                            <td>
+                                @if (!string.IsNullOrEmpty(c.CoverImageUrl))
+                                {
+                                    <img src="@c.CoverImageUrl" style="width:60px; height:60px; object-fit:cover; border-radius:6px;" />
+                                }
+                            </td>
                             <td>@c.Title</td>
                             <td>@c.Description</td>
                             <td>@c.TrainerName</td>
@@ -73,6 +81,18 @@
                         <option value="@t.Id">@t.Name</option>
                     }
                 </select>
+
+                <button type="button" class="btn btn-secondary mb-2" @onclick="TakePhoto">
+                    📷 Take Photo with Camera
+                </button>
+
+                <InputFile OnChange="OnFileSelected" accept="image/*" class="form-control mb-2" />
+
+                @if(!string.IsNullOrEmpty(course.CoverImageUrl))
+                {
+                    <img src="@course.CoverImageUrl" style="width:150px; border-radius:8px; margin-bottom:10px;" />
+                }
+
 
                 <button class="btn btn-success">@((isNew) ? "Add" : "Update")</button>
             </EditForm>
@@ -123,6 +143,7 @@
             Description = c.Description,
             Price = c.Price,
             DurationHours = c.DurationHours,
+            TrainerName = c.TrainerName,
             TrainerId = c.TrainerId
         };
         isNew = false;
@@ -130,20 +151,66 @@
 
     private async Task Save()
     {
-        var success = await Api.SaveAsync("api/course", course, isNew);
+        bool success;
+
+        if (isNew)
+        {
+            // Tambah data baru
+            success = await Api.SaveAsync("api/course", course, true);
+        }
+        else
+        {
+            // Update data lama
+            success = await Api.UpdateAsync("api/course", course.Id, course);
+        }
+
         if (success)
         {
             course = new();
             isNew = true;
             await LoadTrainers();
             await LoadData();
-            
         }
     }
+
 
     private async Task Delete(int id)
     {
         if (await Api.DeleteAsync($"api/course/{id}"))
             await LoadData();
     }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        var url = await Api.UploadImageAsync(file);
+
+        if (url != null)
+            course.CoverImageUrl = url;
+    }
+    private async Task TakePhoto()
+    {
+        var captured = await CameraService.CapturePhotoAsync();
+        if (captured == null)
+            return;
+
+        // Convert to IBrowserFile-style stream object
+        var file = new StreamBrowserFile(
+            captured.FileName,
+            captured.ContentType,
+            captured.Stream
+        );
+
+        // Upload via existing API
+        var url = await Api.UploadImageAsync(file);
+
+        if (url != null)
+        {
+            course.CoverImageUrl = url;
+        }
+    }
+
+
 }

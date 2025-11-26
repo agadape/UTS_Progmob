@@ -8,7 +8,15 @@
 # Build results
 [Bb]in/
 [Oo]bj/
+[Ll]og/
+
+# .NET
+*.dll
+*.pdb
+*.exe
+*.cache
+*.db
+*.log
 
 # Others
-*.log
 *.vsidx

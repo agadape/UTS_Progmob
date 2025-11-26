@@ -1,0 +1,66 @@
+﻿@page "/camera"
+@using EasyTalk.Shared.Services
+@inject APIServices Api
+@inject ICameraService CameraService
+
+<h3>Camera Test</h3>
+
+<button class="btn btn-primary" @onclick="OpenCamera">
+    Take Photo with Camera
+</button>
+
+@if (!string.IsNullOrEmpty(PhotoUrl))
+{
+    <div style="margin-top:20px;">
+        <h4>Uploaded Image:</h4>
+        <img src="@PhotoUrl" style="max-width:300px; border-radius:10px;" />
+    </div>
+}
+
+@code {
+    private string? PhotoUrl;
+
+    private async Task OpenCamera()
+    {
+        var captured = await CameraService.CapturePhotoAsync();
+        if (captured == null)
+            return;
+
+        // bungkus Stream -> IBrowserFile agar bisa dipakai UploadImageAsync
+        var file = new StreamBrowserFile(
+            captured.FileName,
+            captured.ContentType,
+            captured.Stream
+        );
+
+        var url = await Api.UploadImageAsync(file);
+
+        if (url != null)
+            PhotoUrl = url;
+    }
+
+    // Implementasi IBrowserFile berbasis Stream (umum, tidak tergantung MAUI)
+    public class StreamBrowserFile : IBrowserFile
+    {
+        public StreamBrowserFile(string name, string contentType, Stream stream)
+        {
+            Name = name;
+            ContentType = contentType;
+            _stream = stream;
+            LastModified = DateTimeOffset.Now;
+            Size = stream.Length;
+        }
+
+        private readonly Stream _stream;
+
+        public string Name { get; }
+        public DateTimeOffset LastModified { get; }
+        public long Size { get; }
+        public string ContentType { get; }
+
+        public Stream OpenReadStream(long maxAllowedSize = 5120000, CancellationToken cancellationToken = default)
+        {
+            return _stream;
+        }
+    }
+}

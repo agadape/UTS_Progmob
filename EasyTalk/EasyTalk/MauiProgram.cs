@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System;
 
 
+
 namespace EasyTalk
 {
     public static class MauiProgram
@@ -31,6 +32,7 @@ namespace EasyTalk
 
             // ✅ Tambahkan ini
             builder.Services.AddScoped<APIServices>();
+            builder.Services.AddScoped<ICameraService, MauiCameraService>();
             builder.Services.AddHttpClient<APIServices>(client =>
             {
                 client.BaseAddress = new Uri("https://localhost:7177/"); // sesuaikan port backend

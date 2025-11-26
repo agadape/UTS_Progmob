@@ -2,17 +2,15 @@
 @using EasyTalk.Shared.Models
 @using EasyTalk.Shared.Services
 @inject APIServices Api
+@inject ICameraService CameraService
 
 <div class="dashboard-container">
-
     <aside class="sidebar">
         <h2 class="logo">EasyTalk Admin</h2>
         <nav>
             <ul>
-                <li><a class="active" href="/trainers">👨‍🏫 Trainers</a></li>
-                <li><a href="/students">👩‍🎓 Students</a></li>
-                <li><a href="/courses">📚 Courses</a></li>
-                <li><a href="/reports">📊 Reports</a></li>
+                <li><a class="active" href="/trainers">Trainers</a></li>
+                <li><a href="/courses">Courses</a></li>
             </ul>
         </nav>
     </aside>
@@ -27,10 +25,12 @@
             </div>
         </header>
 
+        <!-- Trainer Table -->
         <section class="card">
             <table class="table table-striped mt-3">
                 <thead>
                     <tr>
+                        <th>Photo</th>
                         <th>Name</th>
                         <th>Expertise</th>
                         <th>Email</th>
@@ -41,6 +41,18 @@
                     @foreach (var t in trainers)
                     {
                         <tr>
+                            <td>
+                                @if (!string.IsNullOrEmpty(t.ProfileImageUrl))
+                                {
+                                    <img src="@t.ProfileImageUrl"
+                                         style="width:50px;height:50px;border-radius:50%;object-fit:cover;" />
+                                }
+                                else
+                                {
+
+                                    <span>No photo</span>
+                                }
+                            </td>
                             <td>@t.Name</td>
                             <td>@t.Expertise</td>
                             <td>@t.Email</td>
@@ -54,10 +66,11 @@
             </table>
         </section>
 
+        <!-- Trainer Form -->
         <section class="card form-card p-3 mt-3">
             <h4>@(isNew ? "Add Trainer" : "Edit Trainer")</h4>
 
-            <EditForm FormName="TrainerForm" Model="trainer" OnValidSubmit="Save">
+            <EditForm Model="trainer" OnValidSubmit="Save">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
 
@@ -69,6 +82,21 @@
 
                 <InputText @bind-Value="trainer.Email" class="form-control mb-2" placeholder="Email" />
                 <ValidationMessage For="@(() => trainer.Email)" />
+
+                <!-- CAMERA BUTTON -->
+                <button type="button" class="btn btn-secondary mb-2" @onclick="TakeTrainerPhoto">
+                    📷 Take Photo
+                </button>
+
+                <!-- FILE UPLOAD -->
+                <InputFile OnChange="OnTrainerFileSelected" accept="image/*" class="form-control mb-2" />
+
+                <!-- PREVIEW -->
+                @if (!string.IsNullOrEmpty(trainer.ProfileImageUrl))
+                {
+                    <img src="@trainer.ProfileImageUrl"
+                         style="width:150px; border-radius:8px; margin-bottom:10px;" />
+                }
 
                 <button type="submit" class="btn btn-success">
                     @((isNew) ? "Add" : "Update")
@@ -94,7 +122,6 @@
             var url = string.IsNullOrEmpty(searchTerm)
                 ? "api/trainer"
                 : $"api/trainer?search={searchTerm}";
-
             trainers = await Api.GetAllAsync<Trainer>(url);
         }
         catch (Exception ex)
@@ -110,14 +137,21 @@
             Id = t.Id,
             Name = t.Name,
             Expertise = t.Expertise,
-            Email = t.Email
+            Email = t.Email,
+            ProfileImageUrl = t.ProfileImageUrl   // penting!
         };
         isNew = false;
     }
 
     private async Task Save()
     {
-        var success = await Api.SaveAsync("api/trainer", trainer, isNew);
+        bool success;
+
+        if (isNew)
+            success = await Api.SaveAsync("api/trainer", trainer, true);
+        else
+            success = await Api.UpdateAsync("api/trainer", trainer.Id, trainer);
+
         if (success)
         {
             trainer = new();
@@ -130,5 +164,54 @@
     {
         if (await Api.DeleteAsync($"api/trainer/{id}"))
             await LoadData();
+    }
+
+    private async Task OnTrainerFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        var url = await Api.UploadImageAsync(file);
+        if (url != null)
+            trainer.ProfileImageUrl = url;
+    }
+
+    private async Task TakeTrainerPhoto()
+    {
+        var captured = await CameraService.CapturePhotoAsync();
+        if (captured == null) return;
+
+        var wrapper = new StreamBrowserFile(
+            captured.FileName,
+            captured.ContentType,
+            captured.Stream
+        );
+
+        var url = await Api.UploadImageAsync(wrapper);
+        if (url != null)
+            trainer.ProfileImageUrl = url;
+    }
+
+    // MAUI wrapper
+    public class StreamBrowserFile : IBrowserFile
+    {
+        public StreamBrowserFile(string name, string contentType, Stream stream)
+        {
+            Name = name;
+            ContentType = contentType;
+            _stream = stream;
+            LastModified = DateTimeOffset.Now;
+            Size = stream.Length;
+        }
+
+        private readonly Stream _stream;
+
+        public string Name { get; }
+        public DateTimeOffset LastModified { get; }
+        public long Size { get; }
+        public string ContentType { get; }
+
+        public Stream OpenReadStream(long maxAllowedSize = 5120000, CancellationToken cancellationToken = default)
+            => _stream;
     }
 }
